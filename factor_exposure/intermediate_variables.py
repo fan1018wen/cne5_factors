@@ -94,7 +94,7 @@ def get_recent_financial_report(date):
 
     # recent_report_type 和 annual_report_type 均为 dataframe 格式，输出时转为 Series 格式
 
-    return recent_report_type.T[date], annual_report_type.T[date]
+    return recent_report_type.T[date].dropna(), annual_report_type.T[date]
 
 
 def get_recent_five_annual_shares(stock_list, date):

@@ -33,23 +33,45 @@ longTermParameters = {'factor_return_length': 252,
 
 # 未进行 Eigenfactor risk adjustment 和 volatility regime adjustment
 
-#unadjusted_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_UnadjCovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
+unadjusted_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_UnadjCovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
 
-unadjusted_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_UnadjCovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
+#unadjusted_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_UnadjCovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
 
 unadjusted_covariance = unadjusted_covariance.drop('DataDate', axis = 1)
 
 # 已实现 Eigenfactor risk adjustment，未进行 volatility regime adjustment
 
-#pre_volatilityRegimeAdjustment_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_preVRACovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
+pre_VRA_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_preVRACovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
 
-pre_volatilityRegimeAdjustment_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_preVRACovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
+#pre_volatilityRegimeAdjustment_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_preVRACovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
 
 # 已实现 Eigenfactor risk adjustment 和 volatility regime adjustment
 
-#fully_processed_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_Covariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
+fully_processed_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_Covariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
 
-fully_processed_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_Covariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
+#fully_processed_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_Covariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
+
+
+# 市值因子
+
+barra_unadjusted_var = unadjusted_covariance[unadjusted_covariance['!Factor1'] == unadjusted_covariance['Factor2']]
+
+barra_nw_adjusted_var = pd.Series(data=barra_unadjusted_var['VarCovar'].values, index=barra_unadjusted_var['!Factor1'].values.tolist())
+
+barra_pre_VRA_var = pre_VRA_covariance[pre_VRA_covariance['!Factor1'] == pre_VRA_covariance['Factor2']]
+
+barra_pre_VRA_var = pd.Series(data=barra_pre_VRA_var['VarCovar'].values, index=barra_pre_VRA_var['!Factor1'].values.tolist())
+
+barra_fully_processed_var = fully_processed_covariance[fully_processed_covariance['!Factor1'] == fully_processed_covariance['Factor2']]
+
+barra_fully_processed_var = pd.Series(data=barra_fully_processed_var['VarCovar'].values, index=barra_fully_processed_var['!Factor1'].values.tolist())
+
+merged_var = pd.concat([barra_nw_adjusted_var, barra_pre_VRA_var, barra_fully_processed_var], axis = 1)
+
+barra_nw_adjusted_var.loc['CNE5S_SIZE']
+
+
+
 
 
 def factor_covariance_comparison(reformatted_empirical_factor_covariance):
@@ -87,7 +109,24 @@ def factor_covariance_comparison(reformatted_empirical_factor_covariance):
     return
 
 
-def get_multiperiod_factor_returns(all_factors, latest_trading_date, parameters):
+def get_multiperiod_factor_returns(latest_trading_date, parameters):
+
+    industry_factors = ['CNE5S_ENERGY', 'CNE5S_CHEM', 'CNE5S_CONMAT', 'CNE5S_MTLMIN', 'CNE5S_MATERIAL', 'CNE5S_AERODEF',
+                        'CNE5S_BLDPROD', 'CNE5S_CNSTENG', 'CNE5S_ELECEQP', 'CNE5S_INDCONG', 'CNE5S_MACH',
+                        'CNE5S_TRDDIST',
+                        'CNE5S_COMSERV', 'CNE5S_AIRLINE', 'CNE5S_MARINE', 'CNE5S_RDRLTRAN', 'CNE5S_AUTO',
+                        'CNE5S_HOUSEDUR',
+                        'CNE5S_LEISLUX', 'CNE5S_CONSSERV', 'CNE5S_MEDIA', 'CNE5S_RETAIL', 'CNE5S_PERSPRD', 'CNE5S_BEV',
+                        'CNE5S_FOODPROD', 'CNE5S_HEALTH', 'CNE5S_BANKS', 'CNE5S_DVFININS', 'CNE5S_REALEST',
+                        'CNE5S_SOFTWARE',
+                        'CNE5S_HDWRSEMI', 'CNE5S_UTILITIE']
+
+    style_factors = ['CNE5S_BETA', 'CNE5S_MOMENTUM', 'CNE5S_SIZE', 'CNE5S_EARNYILD', 'CNE5S_RESVOL', 'CNE5S_GROWTH',
+                     'CNE5S_BTOP', 'CNE5S_LEVERAGE', 'CNE5S_LIQUIDTY', 'CNE5S_SIZENL']
+
+    country_factor = ['CNE5S_COUNTRY']
+
+    all_factors = industry_factors + style_factors + country_factor
 
     # 取出多期的收益率，在 Newey West 中计算当期因子收益和滞后因子收益的经验协方差
 
@@ -99,29 +138,85 @@ def get_multiperiod_factor_returns(all_factors, latest_trading_date, parameters)
 
     daily_factor_return = rqdatac.barra.get_factor_return(start_dates[0], end_dates[-1], all_factors) * 100
 
-    multiperiod_daily_factor_return = {}
+    multiperiod_daily_factor_returns = {}
 
     for i in range(1, parameters.get('NeweyWest_volatility_lags') + 1):
 
-        multiperiod_daily_factor_return['lag_' + str(i)] = daily_factor_return[-(parameters.get('factor_return_length') + i): -i]
+        multiperiod_daily_factor_returns['lag_' + str(i)] = daily_factor_return[-(parameters.get('factor_return_length') + i): -i]
 
     # 返回当期的因子收益序列，以及滞后N期的因子收益序列
 
-    return daily_factor_return[-parameters.get('factor_return_length'):], multiperiod_daily_factor_return
+    multiperiod_daily_factor_returns['current'] = daily_factor_return[-parameters.get('factor_return_length'):]
+
+    return multiperiod_daily_factor_returns
 
 
-def get_exponential_weight(half_life, length):
-
-    # 生成权重后，需要对数组进行倒序（[::-1]）
-
-    return np.cumprod(np.repeat(1/np.exp(np.log(2)/half_life), length))[::-1]
 
 
-def Newey_West_adjustment(current_factor_return, multiperiod_factor_returns, all_factors, parameters):
+def variance_NeweyWest_adjustment(multiperiod_factor_returns, parameters):
 
-    volatility_exp_weight = get_exponential_weight(parameters['volatility_half_life'], parameters['factor_return_length'])
+    def _get_exponential_weight(half_life, length):
 
-    correlation_exp_weight = get_exponential_weight(parameters['correlation_half_life'], parameters['factor_return_length'])
+        # 生成权重后，需要对数组进行倒序（[::-1]）
+        return np.cumprod(np.repeat(1 / np.exp(np.log(2) / half_life), length))[::-1]
+
+    exp_weight = _get_exponential_weight(parameters['volatility_half_life'], parameters['factor_return_length'])
+    exp_weighted_variance = pd.DataFrame()
+    demeaned_current_factor_return = multiperiod_factor_returns['current'] - multiperiod_factor_returns['current'].mean()
+
+    for item in sorted(multiperiod_factor_returns.keys()):
+
+        demeaned_factor_return = multiperiod_factor_returns[item] - multiperiod_factor_returns[item].mean()
+
+        demeaned_factor_return.index = demeaned_current_factor_return.index
+
+        exp_weighted_variance[item] = demeaned_current_factor_return.multiply(demeaned_factor_return).T.multiply(exp_weight).T.sum() / exp_weight.sum() * 252
+
+    lagging_coef = lambda x:(1-x/(parameters.get('NeweyWest_volatility_lags') + 1))
+    lagging_weight = lagging_coef(np.arange(0, parameters.get('NeweyWest_volatility_lags')+1))
+
+    nw_adjusted_var = exp_weighted_variance.dot(lagging_weight)
+
+    barra_unadjusted_var = unadjusted_covariance[unadjusted_covariance['!Factor1'] == unadjusted_covariance['Factor2']]
+
+    barra_nw_adjusted_var = pd.Series(data=barra_unadjusted_var['VarCovar'].values, index=barra_unadjusted_var['!Factor1'].values.tolist())
+
+    merged_nw_adjusted_var = pd.concat([barra_nw_adjusted_var, nw_adjusted_var, multiperiod_factor_returns['current'].var() * 252], axis = 1)
+
+    merged_nw_adjusted_var.columns = ['barra', 'rq_nw', 'rq_empirical']
+
+    merged_nw_adjusted_var
+
+    print('Euclidean distance between barra and rq_nw', np.linalg.norm(merged_nw_adjusted_var['barra'] - merged_nw_adjusted_var['rq_nw']))
+
+    print('Euclidean distance between barra and rq_empirical', np.linalg.norm(merged_nw_adjusted_var['barra'] - merged_nw_adjusted_var['rq_empirical']))
+
+    print('correlation between barra and rq_nw', merged_nw_adjusted_var['barra'].corr(merged_nw_adjusted_var['rq_nw']))
+
+    print('correlation between barra and rq_empirical', merged_nw_adjusted_var['barra'].corr(merged_nw_adjusted_var['rq_empirical']))
+
+
+
+
+
+
+
+    weighted_multiperiod_factor_returns['current'] = _weighted_factor_return(multiperiod_factor_returns['current'], parameters['volatility_half_life'], parameters['factor_return_length'])
+
+    weighted_multiperiod_factor_returns = {}
+
+    for item in multiperiod_factor_returns.keys():
+
+        print(item)
+
+        weighted_multiperiod_factor_returns[item] = _weighted_factor_return(multiperiod_factor_returns[item], parameters['volatility_half_life'], parameters['factor_return_length'])
+
+
+
+
+    volatility_exp_weight = _exponential_weight(parameters['volatility_half_life'], parameters['factor_return_length'])
+
+    correlation_exp_weight = _exponential_weight(parameters['correlation_half_life'], parameters['factor_return_length'])
 
     demeaned_current_factor_return = current_factor_return - current_factor_return.mean()
 
@@ -251,27 +346,14 @@ def volatility_regime_adjustment(eigenfactor_risk_adjustment_cov,current_factor_
 
 
 def get_factor_covariance(date, parameters):
-    industry_factors = ['CNE5S_ENERGY', 'CNE5S_CHEM', 'CNE5S_CONMAT', 'CNE5S_MTLMIN', 'CNE5S_MATERIAL', 'CNE5S_AERODEF',
-                        'CNE5S_BLDPROD', 'CNE5S_CNSTENG', 'CNE5S_ELECEQP', 'CNE5S_INDCONG', 'CNE5S_MACH',
-                        'CNE5S_TRDDIST',
-                        'CNE5S_COMSERV', 'CNE5S_AIRLINE', 'CNE5S_MARINE', 'CNE5S_RDRLTRAN', 'CNE5S_AUTO',
-                        'CNE5S_HOUSEDUR',
-                        'CNE5S_LEISLUX', 'CNE5S_CONSSERV', 'CNE5S_MEDIA', 'CNE5S_RETAIL', 'CNE5S_PERSPRD', 'CNE5S_BEV',
-                        'CNE5S_FOODPROD', 'CNE5S_HEALTH', 'CNE5S_BANKS', 'CNE5S_DVFININS', 'CNE5S_REALEST',
-                        'CNE5S_SOFTWARE',
-                        'CNE5S_HDWRSEMI', 'CNE5S_UTILITIE']
-
-    style_factors = ['CNE5S_BETA', 'CNE5S_MOMENTUM', 'CNE5S_SIZE', 'CNE5S_EARNYILD', 'CNE5S_RESVOL', 'CNE5S_GROWTH',
-                     'CNE5S_BTOP', 'CNE5S_LEVERAGE', 'CNE5S_LIQUIDTY', 'CNE5S_SIZENL']
-
-    country_factor = ['CNE5S_COUNTRY']
-
-    all_factors = industry_factors + style_factors + country_factor
 
     latest_trading_date = rqdatac.get_previous_trading_date((datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)))
 
-    current_factor_return, multiperiod_factor_returns = get_multiperiod_factor_returns(all_factors, latest_trading_date,
-                                                                                       parameters)
+    multiperiod_factor_returns = get_multiperiod_factor_returns(latest_trading_date, parameters)
+
+    Newey_West_adjustment(multiperiod_factor_returns, parameters)
+
+
 
     # 计算经验协方差矩阵，同时进行年化处理（乘以 252）
 
@@ -293,6 +375,8 @@ def get_factor_covariance(date, parameters):
 
 
 date = '2018-02-02'
+
+parameeters = shortTermParameters
 
 industry_factors = ['CNE5S_ENERGY', 'CNE5S_CHEM', 'CNE5S_CONMAT', 'CNE5S_MTLMIN', 'CNE5S_MATERIAL', 'CNE5S_AERODEF',
                     'CNE5S_BLDPROD', 'CNE5S_CNSTENG', 'CNE5S_ELECEQP', 'CNE5S_INDCONG', 'CNE5S_MACH', 'CNE5S_TRDDIST',
