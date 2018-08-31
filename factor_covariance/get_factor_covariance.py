@@ -217,7 +217,7 @@ def eigenfactor_risk_adjustment(factor_covariance):
     for sample in np.arange(1, sampling_size + 1, 1):
 
         # 生成服从 N(0,1) 正态分布的随机变量矩阵（252乘43），再乘以各因子的收益波动率。
-        sampling = np.multiply(np.random.normal(0, 1, size=(252, 43)), np.sqrt(eigenvalue))
+        sampling = np.multiply(np.random.normal(0, 1, size=(252, len(factor_covariance.index.tolist()))), np.sqrt(eigenvalue))
         simulated_factor_returns = pd.DataFrame(eigenvector.dot(sampling.T).T, index=np.arange(1, 253, 1), columns=factor_covariance.index)
 
         # 观察模拟得到的协方差矩阵和原协方差矩阵差异
