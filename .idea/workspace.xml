@@ -19,12 +19,11 @@
       <file leaf-file-name="get_factor_covariance.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/factor_covariance/get_factor_covariance.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="404">
-              <caret line="290" lean-forward="true" selection-start-line="290" selection-end-line="290" />
+            <state relative-caret-position="-227">
+              <caret line="18" column="22" lean-forward="true" selection-start-line="18" selection-start-column="22" selection-end-line="18" selection-end-column="22" />
               <folding>
                 <element signature="e#0#18#0" expanded="true" />
                 <element signature="e#1217#3290#0" />
-                <element signature="e#3383#5456#0" />
                 <element signature="e#9490#12678#0" />
                 <element signature="e#12923#12951#0" />
               </folding>
@@ -181,7 +180,7 @@
       <window_info anchor="bottom" id="Event Log" order="8" sideWeight="0.50319487" side_tool="true" weight="0.34626865" />
       <window_info anchor="bottom" id="Run" order="2" />
       <window_info anchor="bottom" id="Version Control" order="7" weight="0.32916668" />
-      <window_info anchor="bottom" id="Python Console" order="9" sideWeight="0.4968051" weight="0.37711442" />
+      <window_info active="true" anchor="bottom" id="Python Console" order="9" sideWeight="0.4968051" visible="true" weight="0.37711442" />
       <window_info id="Structure" order="1" sideWeight="0.50145346" side_tool="true" weight="0.23642172" />
       <window_info anchor="bottom" id="Terminal" order="10" sideWeight="0.49946752" weight="0.3283582" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
@@ -559,12 +558,11 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/factor_covariance/get_factor_covariance.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="404">
-          <caret line="290" lean-forward="true" selection-start-line="290" selection-end-line="290" />
+        <state relative-caret-position="-227">
+          <caret line="18" column="22" lean-forward="true" selection-start-line="18" selection-start-column="22" selection-end-line="18" selection-end-column="22" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
             <element signature="e#1217#3290#0" />
-            <element signature="e#3383#5456#0" />
             <element signature="e#9490#12678#0" />
             <element signature="e#12923#12951#0" />
           </folding>

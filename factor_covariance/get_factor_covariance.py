@@ -74,7 +74,7 @@ def get_multiperiod_factor_returns(latest_trading_date, parameters):
 
 def get_multiperiod_factor_returns(latest_trading_date, parameters):
 
-    if str(latest_trading_date) > '2014-01-01':
+    if str(latest_trading_date) >= '2014-01-01':
 
         industry_factors = ['农林牧渔', '采掘', '化工', '钢铁', '有色金属', '电子', '家用电器', '食品饮料', '纺织服装', '轻工制造',\
                             '医药生物', '公用事业', '交通运输', '房地产', '商业贸易', '休闲服务','综合', '建筑材料',  '建筑装饰', '电气设备',\
