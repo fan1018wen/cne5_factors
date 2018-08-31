@@ -210,9 +210,9 @@ def get_non_linear_size(size_exposure, market_cap_on_current_day):
 
     cubed_size = np.power(size_exposure, 3)
 
-    processed_cubed_size = winsorization_and_market_cap_weighed_standardization(cubed_size, market_cap_on_current_day)
+    #processed_cubed_size = winsorization_and_market_cap_weighed_standardization(cubed_size, market_cap_on_current_day)
 
-    orthogonalized_cubed_size = orthogonalize(target_variable=processed_cubed_size, reference_variable=size_exposure,regression_weight=np.sqrt(market_cap_on_current_day) / (np.sqrt(market_cap_on_current_day).sum()))
+    orthogonalized_cubed_size = orthogonalize(target_variable=cubed_size, reference_variable=size_exposure,regression_weight=np.sqrt(market_cap_on_current_day) / (np.sqrt(market_cap_on_current_day).sum()))
 
     processed_orthogonalized_cubed_size = winsorization_and_market_cap_weighed_standardization(orthogonalized_cubed_size, market_cap_on_current_day)
 

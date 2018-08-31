@@ -2,113 +2,35 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from datetime import timedelta
-
-
+from dateutil.relativedelta import relativedelta
+import pickle
 
 import rqdatac
 rqdatac.init('rice','rice',('192.168.10.64',16030))
 
 
-dailyParameters = {'factor_return_length': 252,
+dailyParameters = {'factor_return_length': 252*3,
                     'volatility_half_life': 42,
                     'NeweyWest_volatility_lags': np.nan,
                     'correlation_half_life': 200,
                     'NeweyWest_correlation_lags': np.nan,
-                    'volatilityRegimeAdjustment_half_life': 4}
+                    'VRA_half_life': 4}
 
-shortTermParameters = {'factor_return_length': 252,
+shortTermParameters = {'factor_return_length': 1260,
                        'volatility_half_life': 84,
                        'NeweyWest_volatility_lags': 5,
                        'correlation_half_life': 504,
                        'NeweyWest_correlation_lags': 2,
-                       'volatilityRegimeAdjustment_half_life': 42}
+                       'VRA_half_life': 42}
 
-longTermParameters = {'factor_return_length': 252,
+longTermParameters = {'factor_return_length': 1260,
                       'volatility_half_life': 252,
                       'NeweyWest_volatility_lags': 5,
                       'correlation_half_life': 504,
                       'NeweyWest_correlation_lags': 2,
-                      'volatilityRegimeAdjustment_half_life': 168}
+                      'VRA_half_life': 168}
 
-
-# 未进行 Eigenfactor risk adjustment 和 volatility regime adjustment
-
-unadjusted_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_UnadjCovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
-
-#unadjusted_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_UnadjCovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
-
-unadjusted_covariance = unadjusted_covariance.drop('DataDate', axis = 1)
-
-# 已实现 Eigenfactor risk adjustment，未进行 volatility regime adjustment
-
-pre_VRA_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_preVRACovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
-
-#pre_volatilityRegimeAdjustment_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_preVRACovariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
-
-# 已实现 Eigenfactor risk adjustment 和 volatility regime adjustment
-
-fully_processed_covariance = pd.read_csv('/Users/jjj728/git/cne5_factors/factor_covariance/data/CNE5S_100_Covariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
-
-#fully_processed_covariance = pd.read_csv('/Users/rice/Desktop/covariance_data/CNE5S_100_Covariance.20180202.txt', sep='|', engine='python', header=0, skipfooter=1, skiprows=2, parse_dates=[])
-
-
-# 市值因子
-
-barra_unadjusted_var = unadjusted_covariance[unadjusted_covariance['!Factor1'] == unadjusted_covariance['Factor2']]
-
-barra_nw_adjusted_var = pd.Series(data=barra_unadjusted_var['VarCovar'].values, index=barra_unadjusted_var['!Factor1'].values.tolist())
-
-barra_pre_VRA_var = pre_VRA_covariance[pre_VRA_covariance['!Factor1'] == pre_VRA_covariance['Factor2']]
-
-barra_pre_VRA_var = pd.Series(data=barra_pre_VRA_var['VarCovar'].values, index=barra_pre_VRA_var['!Factor1'].values.tolist())
-
-barra_fully_processed_var = fully_processed_covariance[fully_processed_covariance['!Factor1'] == fully_processed_covariance['Factor2']]
-
-barra_fully_processed_var = pd.Series(data=barra_fully_processed_var['VarCovar'].values, index=barra_fully_processed_var['!Factor1'].values.tolist())
-
-merged_var = pd.concat([barra_nw_adjusted_var, barra_pre_VRA_var, barra_fully_processed_var], axis = 1)
-
-barra_nw_adjusted_var.loc['CNE5S_SIZE']
-
-
-
-
-
-def factor_covariance_comparison(reformatted_empirical_factor_covariance):
-
-    # 未处理协方差矩阵
-
-    merged_covariance = pd.merge(unadjusted_covariance, reformatted_empirical_factor_covariance, how='left', left_on=['!Factor1', 'Factor2'], right_on=['factor', '_factor'])
-
-    print('unadjusted_covariance 欧几里得距离：', np.linalg.norm(merged_covariance['VarCovar']-merged_covariance[0]))
-
-    print('unadjusted comparison', merged_covariance[['VarCovar', 0]].astype(np.float).corr())
-
-    print('unadjusted comparison', merged_covariance[['VarCovar', 0]].head())
-
-    # Eigenfactor risk adjustment 处理后
-
-    merged_covariance = pd.merge(pre_volatilityRegimeAdjustment_covariance, reformatted_empirical_factor_covariance, how='left', left_on=['!Factor1', 'Factor2'], right_on=['factor', '_factor'])
-
-    print("pre_volatilityRegimeAdjustment 欧几里得距离：", np.linalg.norm(merged_covariance['VarCovar']-merged_covariance[0]))
-
-    print('pre_volatilityRegimeAdjustment comparison', merged_covariance[['VarCovar', 0]].astype(np.float).corr())
-
-    print('pre_volatilityRegimeAdjustment comparison', merged_covariance[['VarCovar', 0]].head())
-
-    # volatility regime adjustment 处理后
-
-    merged_covariance = pd.merge(fully_processed_covariance, reformatted_empirical_factor_covariance, how='left', left_on=['!Factor1', 'Factor2'], right_on=['factor', '_factor'])
-
-    print("fully_processed_covariance 欧几里得距离：", np.linalg.norm(merged_covariance['VarCovar']-merged_covariance[0]))
-
-    print('fully_processed comparison', merged_covariance[['VarCovar', 0]].astype(np.float).corr())
-
-    print('fully_processed comparison', merged_covariance[['VarCovar', 0]].head())
-
-    return
-
-
+'''
 def get_multiperiod_factor_returns(latest_trading_date, parameters):
 
     industry_factors = ['CNE5S_ENERGY', 'CNE5S_CHEM', 'CNE5S_CONMAT', 'CNE5S_MTLMIN', 'CNE5S_MATERIAL', 'CNE5S_AERODEF',
@@ -131,388 +53,300 @@ def get_multiperiod_factor_returns(latest_trading_date, parameters):
     # 取出多期的收益率，在 Newey West 中计算当期因子收益和滞后因子收益的经验协方差
 
     end_dates = rqdatac.get_trading_dates(latest_trading_date - timedelta(days=30), latest_trading_date, country='cn')[-parameters.get('NeweyWest_volatility_lags'):]
-
-    start_dates = rqdatac.get_trading_dates(latest_trading_date - timedelta(days=400), latest_trading_date, country='cn')[-(parameters.get('factor_return_length') + parameters.get('NeweyWest_volatility_lags')):-parameters.get('factor_return_length')]
+    start_dates = rqdatac.get_trading_dates(latest_trading_date - timedelta(days=6000), latest_trading_date, country='cn')[-(parameters.get('factor_return_length') + parameters.get('NeweyWest_volatility_lags')):-parameters.get('factor_return_length')]
 
     # 以百分比为单位，所以乘以 100
 
     daily_factor_return = rqdatac.barra.get_factor_return(start_dates[0], end_dates[-1], all_factors) * 100
-
-    multiperiod_daily_factor_returns = {}
+    multiperiod_factor_returns = {}
 
     for i in range(1, parameters.get('NeweyWest_volatility_lags') + 1):
 
-        multiperiod_daily_factor_returns['lag_' + str(i)] = daily_factor_return[-(parameters.get('factor_return_length') + i): -i]
+        multiperiod_factor_returns['lag_' + str(i)] = daily_factor_return[-(parameters.get('factor_return_length') + i): -i]
 
     # 返回当期的因子收益序列，以及滞后N期的因子收益序列
 
-    multiperiod_daily_factor_returns['current'] = daily_factor_return[-parameters.get('factor_return_length'):]
+    multiperiod_factor_returns['current'] = daily_factor_return[-parameters.get('factor_return_length'):]
 
-    return multiperiod_daily_factor_returns
+    return multiperiod_factor_returns
+'''
 
 
+def get_multiperiod_factor_returns(latest_trading_date, parameters):
 
+    if str(latest_trading_date) > '2014-01-01':
 
-def variance_NeweyWest_adjustment(multiperiod_factor_returns, parameters):
+        industry_factors = ['农林牧渔', '采掘', '化工', '钢铁', '有色金属', '电子', '家用电器', '食品饮料', '纺织服装', '轻工制造',\
+                            '医药生物', '公用事业', '交通运输', '房地产', '商业贸易', '休闲服务','综合', '建筑材料',  '建筑装饰', '电气设备',\
+                            '国防军工', '计算机', '传媒', '通信', '银行', '非银金融', '汽车', '机械设备']
+    else:
 
-    def _get_exponential_weight(half_life, length):
+        industry_factors = ['金融服务', '房地产', '医药生物', '有色金属', '餐饮旅游', '综合', '建筑建材', '家用电器',
+                            '交运设备', '食品饮料', '电子', '信息设备', '交通运输', '轻工制造', '公用事业', '机械设备',
+                            '纺织服装', '农林牧渔', '商业贸易', '化工', '信息服务', '采掘', '黑色金属']
 
-        # 生成权重后，需要对数组进行倒序（[::-1]）
-        return np.cumprod(np.repeat(1 / np.exp(np.log(2) / half_life), length))[::-1]
+    style_factors = ['beta', 'momentum', 'earnings_yield', 'residual_volatility', 'growth', 'book_to_price',
+                     'leverage', 'liquidity']
 
-    exp_weight = _get_exponential_weight(parameters['volatility_half_life'], parameters['factor_return_length'])
-    exp_weighted_variance = pd.DataFrame()
-    demeaned_current_factor_return = multiperiod_factor_returns['current'] - multiperiod_factor_returns['current'].mean()
+    country_factor = ['comovement']
 
-    for item in sorted(multiperiod_factor_returns.keys()):
+    all_factors = industry_factors + style_factors + country_factor
 
-        demeaned_factor_return = multiperiod_factor_returns[item] - multiperiod_factor_returns[item].mean()
+    # 取出多期的收益率，在 Newey West 中计算当期因子收益和滞后因子收益的经验协方差
 
-        demeaned_factor_return.index = demeaned_current_factor_return.index
+    end_dates = rqdatac.get_trading_dates(latest_trading_date - timedelta(days=30), latest_trading_date, country='cn')[-parameters.get('NeweyWest_volatility_lags'):]
+    start_dates = rqdatac.get_trading_dates(latest_trading_date - timedelta(days=6000), latest_trading_date, country='cn')[-(parameters.get('factor_return_length') + parameters.get('NeweyWest_volatility_lags')):-parameters.get('factor_return_length')]
 
-        exp_weighted_variance[item] = demeaned_current_factor_return.multiply(demeaned_factor_return).T.multiply(exp_weight).T.sum() / exp_weight.sum() * 252
+    # 以百分比为单位，所以乘以 100
 
-    lagging_coef = lambda x:(1-x/(parameters.get('NeweyWest_volatility_lags') + 1))
-    lagging_weight = lagging_coef(np.arange(0, parameters.get('NeweyWest_volatility_lags')+1))
+    daily_factor_return = rqdatac.get_factor_return(start_dates[0], end_dates[-1], all_factors) * 100
+    multiperiod_factor_returns = {}
 
-    nw_adjusted_var = exp_weighted_variance.dot(lagging_weight)
+    for i in range(1, parameters.get('NeweyWest_volatility_lags') + 1):
 
-    barra_unadjusted_var = unadjusted_covariance[unadjusted_covariance['!Factor1'] == unadjusted_covariance['Factor2']]
+        multiperiod_factor_returns['lag_' + str(i)] = daily_factor_return[-(parameters.get('factor_return_length') + i): -i]
 
-    barra_nw_adjusted_var = pd.Series(data=barra_unadjusted_var['VarCovar'].values, index=barra_unadjusted_var['!Factor1'].values.tolist())
+    # 返回当期的因子收益序列，以及滞后N期的因子收益序列
 
-    merged_nw_adjusted_var = pd.concat([barra_nw_adjusted_var, nw_adjusted_var, multiperiod_factor_returns['current'].var() * 252], axis = 1)
+    multiperiod_factor_returns['current'] = daily_factor_return[-parameters.get('factor_return_length'):]
 
-    merged_nw_adjusted_var.columns = ['barra', 'rq_nw', 'rq_empirical']
+    return multiperiod_factor_returns
 
-    merged_nw_adjusted_var
 
-    print('Euclidean distance between barra and rq_nw', np.linalg.norm(merged_nw_adjusted_var['barra'] - merged_nw_adjusted_var['rq_nw']))
+def get_exponential_weight(half_life, length):
 
-    print('Euclidean distance between barra and rq_empirical', np.linalg.norm(merged_nw_adjusted_var['barra'] - merged_nw_adjusted_var['rq_empirical']))
+    # 生成权重后，需要对数组进行倒序（[::-1]）
+    exp_weight = np.cumprod(np.repeat(1 / np.exp(np.log(2) / half_life), length))[::-1]
 
-    print('correlation between barra and rq_nw', merged_nw_adjusted_var['barra'].corr(merged_nw_adjusted_var['rq_nw']))
+    # 返回归一化权重
+    return exp_weight / exp_weight.sum()
 
-    print('correlation between barra and rq_empirical', merged_nw_adjusted_var['barra'].corr(merged_nw_adjusted_var['rq_empirical']))
 
+def get_NeweyWest_weight(multiperiod_factor_returns, lags):
 
+    lagging_terms = list(sorted(multiperiod_factor_returns.keys()))
+    lagging_terms.remove('current')
+    lagging_terms = lagging_terms[:lags]
 
+    _lagging_coef_calc = lambda x: (1 - x / (lags + 1))
+    lagging_weight = pd.Series(_lagging_coef_calc(np.arange(1, lags + 1)), index=lagging_terms)
 
+    return lagging_weight
 
 
+def volatility_NeweyWest_adjustment(multiperiod_factor_returns, parameters):
 
-    weighted_multiperiod_factor_returns['current'] = _weighted_factor_return(multiperiod_factor_returns['current'], parameters['volatility_half_life'], parameters['factor_return_length'])
+    demeaned_current_factor_return = multiperiod_factor_returns['current'].iloc[-parameters['factor_return_length']::] - multiperiod_factor_returns['current'].iloc[-parameters['factor_return_length']::].mean()
 
-    weighted_multiperiod_factor_returns = {}
+    exp_weight = get_exponential_weight(parameters['volatility_half_life'], parameters['factor_return_length'])
+    # 先计算当期因子收益率加权经验方差，再加入自协方差
 
-    for item in multiperiod_factor_returns.keys():
+    NeweyWest_adjusted_variance = demeaned_current_factor_return.multiply(demeaned_current_factor_return).T.dot(exp_weight) * 252
 
-        print(item)
+    if parameters['NeweyWest_volatility_lags'] is not np.nan:
 
-        weighted_multiperiod_factor_returns[item] = _weighted_factor_return(multiperiod_factor_returns[item], parameters['volatility_half_life'], parameters['factor_return_length'])
+        lagging_weight = get_NeweyWest_weight(multiperiod_factor_returns, parameters['NeweyWest_volatility_lags'])
 
+        for item in lagging_weight.index.tolist():
 
+            demeaned_lagging_factor_return = multiperiod_factor_returns[item] - multiperiod_factor_returns[item].mean()
 
+            demeaned_lagging_factor_return.index = demeaned_current_factor_return.index
 
-    volatility_exp_weight = _exponential_weight(parameters['volatility_half_life'], parameters['factor_return_length'])
+            autocovariance = demeaned_current_factor_return.multiply(demeaned_lagging_factor_return).T.dot(exp_weight) * 252
 
-    correlation_exp_weight = _exponential_weight(parameters['correlation_half_life'], parameters['factor_return_length'])
+            NeweyWest_adjusted_variance = NeweyWest_adjusted_variance + lagging_weight[item] * autocovariance
 
-    demeaned_current_factor_return = current_factor_return - current_factor_return.mean()
+    NeweyWest_adjusted_volatility = pd.Series(np.sqrt(NeweyWest_adjusted_variance), index=NeweyWest_adjusted_variance.index)
 
-    estimated_lag_cov = pd.DataFrame(index=all_factors, columns=all_factors)
+    return NeweyWest_adjusted_volatility
 
-    estimated_lag_var = pd.DataFrame(index=all_factors, columns=all_factors)
 
-    exp_factors_return = pd.DataFrame()
+def correlation_NeweyWest_adjustment(multiperiod_factor_returns, parameters):
 
-    varexp_factors_return = pd.DataFrame()
+    demeaned_current_factor_return = multiperiod_factor_returns['current'].iloc[-parameters['factor_return_length']::] - multiperiod_factor_returns['current'].iloc[-parameters['factor_return_length']::].mean()
 
-    intermediate_cov = pd.DataFrame(index=all_factors, columns=all_factors, data=0)
+    exp_weight = get_exponential_weight(parameters['correlation_half_life'], parameters['factor_return_length'])
 
-    intermediate_var = pd.DataFrame(index=all_factors, columns=all_factors, data=0)
+    # 先计算指数加权经验协方差，并作年化处理
 
-    # 计算协方差和方差估计矩阵
+    NeweyWest_adjusted_covariance = demeaned_current_factor_return.T.multiply(exp_weight).dot(demeaned_current_factor_return) * 252
 
-    for factor in all_factors:
+    # 先对当期因子收益率进行加权处理，再加入自协方差
 
-        exp_factors_return[factor] = np.sqrt(correlation_exp_weight) * demeaned_current_factor_return[factor] / correlation_exp_weight.sum()
+    weighted_current_factor_return = demeaned_current_factor_return.T.multiply(exp_weight)
 
-        varexp_factors_return[factor] = np.sqrt(volatility_exp_weight) * demeaned_current_factor_return[factor] / volatility_exp_weight.sum()
+    if parameters['NeweyWest_volatility_lags'] is not np.nan:
 
-    estimated_cov = exp_factors_return.cov()
+        lagging_weight = get_NeweyWest_weight(multiperiod_factor_returns, parameters['NeweyWest_correlation_lags'])
 
-    estimated_var = varexp_factors_return.cov()
+        for item in lagging_weight.index.tolist():
 
-    # 计算协方差和方差在不同滞后长度下的协方差和方差矩阵
+            demeaned_lagging_factor_return = multiperiod_factor_returns[item] - multiperiod_factor_returns[item].mean()
 
-    for lag in range(1, 6):
+            demeaned_lagging_factor_return.index = demeaned_current_factor_return.index
 
-        demeaned_lag_factor_return = multiperiod_factor_returns['lag_' + str(lag)] - multiperiod_factor_returns['lag_' + str(lag)].mean()
+            autocovariance = weighted_current_factor_return.dot(demeaned_lagging_factor_return) * 252
 
-        for factor in all_factors:
+            # 对于因子收益率 f(k) 和 f(l)，滞后N期的自相关性包括 correlation{f(k,t), f(l,t-N)} 以及 correlation{f(k,t-N), f(l,t)} 两种情况，所以需要进行转置。
 
-            estimated_lag_cov[factor] = np.sqrt(correlation_exp_weight).dot((exp_factors_return[factor].values * demeaned_lag_factor_return[factor]).values)
+            NeweyWest_adjusted_covariance = NeweyWest_adjusted_covariance + lagging_weight[item] * (autocovariance + autocovariance.T)
 
-            estimated_lag_var[factor] = np.sqrt(volatility_exp_weight).dot((varexp_factors_return[factor].values * demeaned_lag_factor_return[factor]).values)
+    factor_volatility = pd.Series(np.sqrt(np.diag(NeweyWest_adjusted_covariance)), index=NeweyWest_adjusted_covariance.index)
 
-        if lag <= parameters['NeweyWest_correlation_lags']:
+    # 计算因子波动率的外积和相关系数矩阵
 
-            intermediate_cov = intermediate_cov + (1 - lag / (1 + parameters.get('NeweyWest_correlation_lags'))) * (estimated_lag_cov + estimated_lag_cov.T)
+    volatility_outerproduct = pd.DataFrame(np.outer(factor_volatility, factor_volatility), index = factor_volatility.index, columns = factor_volatility.index)
+    NeweyWest_adjusted_correlation = NeweyWest_adjusted_covariance / volatility_outerproduct
 
-        intermediate_var = intermediate_var + (1 - lag / (1 + parameters.get('NeweyWest_volatility_lags'))) * (estimated_lag_var + estimated_lag_var.T).replace(np.nan,0)
+    return NeweyWest_adjusted_correlation
 
-    Newey_West_adjustment_cov = 252 * (estimated_cov + intermediate_cov)
 
-    Newey_West_adjustment_var = 252 * (estimated_var + intermediate_var)
+def eigenfactor_risk_adjustment(factor_covariance):
 
-    # 计算调整风险矩阵各项 volatility和相关系数
+    eigenvalue, eigenvector = np.linalg.eig(factor_covariance)
 
-    correlation_matrix = pd.DataFrame(index=all_factors,columns=all_factors)
+    # 验证是否能从分解项得到原协方差矩阵
+    #test = eigenvector.dot(np.diag(eigenvalue.reshape(1, len(factor_covariance.index))[0])).dot(eigenvector.T)
+    #test_matrix = pd.DataFrame(data=test,index=factor_covariance.index,columns=factor_covariance.columns)
+    #pd.concat([factor_covariance['CNE5S_SIZE'], test_matrix['CNE5S_SIZE']],axis=1)
 
-    factor_volitality_cov = pd.Series(data=np.sqrt(np.diag(Newey_West_adjustment_cov.astype(np.float))),index=Newey_West_adjustment_cov.index)
+    sampling_size = 1000
+    simulated_volatility_bias = pd.DataFrame(data=np.nan, index=eigenvalue, columns=np.arange(1, sampling_size + 1, 1))
 
-    factor_volitality = pd.Series(data=np.sqrt(np.diag(Newey_West_adjustment_var.astype(np.float))),index=Newey_West_adjustment_var.index)
+    for sample in np.arange(1, sampling_size + 1, 1):
 
-    adjusted_covariance = pd.DataFrame(index=all_factors,columns=all_factors)
+        # 生成服从 N(0,1) 正态分布的随机变量矩阵（252乘43），再乘以各因子的收益波动率。
+        sampling = np.multiply(np.random.normal(0, 1, size=(252, 43)), np.sqrt(eigenvalue))
+        simulated_factor_returns = pd.DataFrame(eigenvector.dot(sampling.T).T, index=np.arange(1, 253, 1), columns=factor_covariance.index)
 
-    for factor in all_factors:
+        # 观察模拟得到的协方差矩阵和原协方差矩阵差异
+        #simulated_factor_covariance = pd.DataFrame(index=NeweyWest_adjusted_covariance.index, columns=NeweyWest_adjusted_covariance.columns, data=simulated_factor_returns.cov().values)
+        #pd.concat([factor_covariance['CNE5S_SIZE'], simulated_factor_covariance['CNE5S_SIZE']], axis=1)
+        #pd.concat([factor_covariance['CNE5S_SIZENL'], simulated_factor_covariance['CNE5S_SIZENL']], axis=1)
 
-        for factors in all_factors:
+        simulated_eigenvalue, simulated_eigenvector = np.linalg.eig(simulated_factor_returns.cov().values)
+        simulated_eigenvfactor_variance = simulated_eigenvector.T.dot(factor_covariance).dot(simulated_eigenvector)
 
-            correlation_matrix[factor].loc[factors] = Newey_West_adjustment_cov[factor][factors]/(factor_volitality_cov.loc[factors] * factor_volitality_cov.loc[factor])
+        # 观察特征因子的原始方差和模拟方差
+        #np.stack([eigenvalue, np.diag(simulated_eigenvfactor_variance)])
 
-            adjusted_covariance[factor][factors] = correlation_matrix[factor].loc[factors] * factor_volitality.loc[factor] * factor_volitality.loc[factors]
+        #previous_simulated_volatility_bias = simulated_volatility_bias.mean(axis=1).copy()
 
-    return adjusted_covariance,factor_volitality,correlation_matrix,estimated_cov
+        simulated_volatility_bias[sample] = np.diag(simulated_eigenvfactor_variance)/eigenvalue
 
+        # 观察特征因子的偏差如何随特征值变化
+        #simulated_volatility_bias[sample].sort_index()
 
-def eigenfactor_risk_adjustment(Newey_West_adjustment_cov,factor_volitality,all_factors,estimated_cov):
+        # 观察偏差统计量随样本量增加的收敛情况
+        #print('convergence', sample, np.linalg.norm(simulated_volatility_bias.mean(axis=1) - previous_simulated_volatility_bias))
 
-    eigen_value, eigen_vector = np.linalg.eig(Newey_West_adjustment_cov.astype(np.float))
+    # 剔除特征值最小的15个特征因子，再进行偏差项的抛物线拟合
 
-    eigen_value_matrix = pd.DataFrame(index=Newey_West_adjustment_cov.index, columns=Newey_West_adjustment_cov.index,data=np.diag(eigen_value.reshape(1, len(Newey_West_adjustment_cov.index))[0]))
+    parabolic_coef = np.polyfit(simulated_volatility_bias.mean(axis=1).sort_index().iloc[15:].index, simulated_volatility_bias.mean(axis=1).sort_index().iloc[15:].values, 2)
+    parabolic_fit = np.poly1d(parabolic_coef)
+    fitted_volatility_bias = parabolic_fit(simulated_volatility_bias.mean(axis=1).sort_index().index)
 
-    eigen_vector_matrix = pd.DataFrame(data=eigen_vector,index=Newey_West_adjustment_cov.index,columns=Newey_West_adjustment_cov.index)
+    # 参照 USE4 进行经验校正
+    scaled_volatility_bias = 1.4 * (fitted_volatility_bias - 1) + 1
 
-    monte_carlo_sampling_number = 10000
+    # 对原协方差矩阵进行调整
+    adjusted_eigenvalue = (scaled_volatility_bias[::-1] ** 2) * eigenvalue
+    adjusted_factor_covariance = eigenvector.dot(np.diag(adjusted_eigenvalue.reshape(1, len(factor_covariance.index))[0])).dot(eigenvector.T)
+    adjusted_factor_covariance_df = pd.DataFrame(data=adjusted_factor_covariance, index=factor_covariance.index,columns=factor_covariance.columns)
 
-    intermediate_eigen_value = pd.DataFrame(data=0,index=all_factors,columns=all_factors)
+    # 观察校正后的协方差矩阵和原协方差矩阵差异
+    #pd.concat([adjusted_factor_covariance_df['CNE5S_SIZE'], factor_covariance['CNE5S_SIZE']], axis=1)
+    #pd.concat([adjusted_factor_covariance_df['CNE5S_SIZENL'], factor_covariance['CNE5S_SIZENL']], axis=1)
 
-    for m in range(1,monte_carlo_sampling_number):
+    return adjusted_factor_covariance_df
 
-        monte_carlo_simulation = pd.DataFrame(columns=all_factors)
 
-        for factor in all_factors:
+def volatility_regime_adjustment(factor_covariance, factor_return, date, parameters):
 
-            monte_carlo_simulation[factor] = np.random.normal(0, factor_volitality.loc[factor], size=252)
+    # 以权重半衰期的四倍作为样本数量
+    start_date = pd.Timestamp(date) - relativedelta(months=np.ceil(4*parameters['VRA_half_life']/252 * (12 * 3/2)))
+    end_date = rqdatac.get_previous_trading_date(date)
+    trading_dates = rqdatac.get_trading_dates(start_date, end_date)[-4*parameters['VRA_half_life']:]
 
-        monte_carlo_cov = (monte_carlo_simulation.dot(eigen_vector_matrix)).cov()
+    forecast_factor_volatility = pd.DataFrame()
 
-        eigen_value_m, eigen_vector_m = np.linalg.eig(monte_carlo_cov.astype(np.float))
+    # for date in trading_dates:
+    #
+    #     previous_factor_covariance = rqdatac.barra.get_factor_covariance(date)
+    #     forecast_factor_volatility[date] = pd.Series(data=np.diag(previous_factor_covariance), index=factor_covariance.index).pow(0.5)
+    for date in trading_dates:
 
-        eigen_value_m_matrix = pd.DataFrame(index=monte_carlo_cov.index,columns=monte_carlo_cov.index,data=np.diag(eigen_value_m.reshape(1, len(monte_carlo_cov.index))[0]))
+        if np.isnan(parameters['NeweyWest_volatility_lags']):
 
-        eigen_value_adjust, eigen_vector_adjust = np.linalg.eig((monte_carlo_cov+estimated_cov).astype(np.float))
+            previous_factor_covariance = pickle.load(open('/Users/rice/Desktop/covariance/daliy_eigen.pkl', 'rb'))[date]
 
-        eigen_value_adjust_matrix = pd.DataFrame(index=monte_carlo_cov.index,columns=monte_carlo_cov.index,data=np.diag(eigen_value_adjust.reshape(1, len(monte_carlo_cov.index))[0]))
+        elif parameters==shortTermParameters:
+            previous_factor_covariance = pickle.load(open('/Users/rice/Desktop/covariance/short_eigen.pkl', 'rb'))[date]
 
-        intermediate_eigen_value = intermediate_eigen_value + (eigen_value_adjust_matrix/eigen_value_m_matrix).replace(np.nan,0)
+        else:
+            previous_factor_covariance = pickle.load(open('/Users/rice/Desktop/covariance/long_eigen.pkl', 'rb'))[date]
 
-    pai = intermediate_eigen_value/monte_carlo_sampling_number
+        forecast_factor_volatility[date] = pd.Series(data=np.diag(previous_factor_covariance), index=factor_covariance.index).pow(0.5)
 
-    eigenfactor_risk_adjustment_cov = eigen_vector_matrix.dot(pai.dot(eigen_value_matrix).dot(eigen_vector_matrix.T))
+    # 反年化处理，计算日波动率
+    daily_factor_volatility = forecast_factor_volatility/np.sqrt(252)
 
-    return eigenfactor_risk_adjustment_cov
+    exp_weight = get_exponential_weight(parameters['VRA_half_life'], 4*parameters['VRA_half_life'])
+    cross_sectional_bias = (factor_return.loc[trading_dates[0]:trading_dates[-1]]/daily_factor_volatility.T).pow(2).mean(axis = 1).pow(0.5)
+    factor_volatility_multiplier = cross_sectional_bias.dot(exp_weight)
+    VRA_adjusted_covariance = factor_covariance * (factor_volatility_multiplier**2)
 
-
-def volatility_regime_adjustment(eigenfactor_risk_adjustment_cov,current_factor_return,parameters):
-
-    volatility_regime_exp_weight = get_exponential_weight(parameters['volatilityRegimeAdjustment_half_life'], parameters['factor_return_length'])
-
-    empirical_factor_volitality = pd.Series(data=np.sqrt(np.diag(current_factor_return.cov())),index=current_factor_return.columns)
-
-    bias = pd.Series(index=current_factor_return.index)
-
-    for date in current_factor_return.index.tolist():
-
-        bias.loc[date] = np.square(current_factor_return.loc[date]/empirical_factor_volitality).sum()/len(current_factor_return.columns)
-
-    lambda_f = np.sqrt(volatility_regime_exp_weight.dot(bias)/volatility_regime_exp_weight.sum())
-
-    volatility_regime_adjustment_cov = lambda_f**(2) * eigenfactor_risk_adjustment_cov
-
-    return volatility_regime_adjustment_cov
+    return VRA_adjusted_covariance
 
 
 def get_factor_covariance(date, parameters):
 
-    latest_trading_date = rqdatac.get_previous_trading_date((datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)))
+    latest_trading_date = rqdatac.get_previous_trading_date((datetime.strptime(str(date), "%Y-%m-%d") + timedelta(days=1)))
+    multiperiod_factor_returns = get_multiperiod_factor_returns(latest_trading_date, longTermParameters)
 
-    multiperiod_factor_returns = get_multiperiod_factor_returns(latest_trading_date, parameters)
+    NeweyWest_adjusted_volatility = volatility_NeweyWest_adjustment(multiperiod_factor_returns, parameters)
+    NeweyWest_adjusted_correlation = correlation_NeweyWest_adjustment(multiperiod_factor_returns, parameters)
 
-    Newey_West_adjustment(multiperiod_factor_returns, parameters)
+    volatility_outerproduct = pd.DataFrame(np.outer(NeweyWest_adjusted_volatility, NeweyWest_adjusted_volatility), index = NeweyWest_adjusted_volatility.index, columns =NeweyWest_adjusted_volatility.index)
+    NeweyWest_adjusted_covariance = NeweyWest_adjusted_correlation * volatility_outerproduct
 
+    eigenfactor_adjusted_covariance = eigenfactor_risk_adjustment(NeweyWest_adjusted_covariance)
+    #VRA_adjusted_covariance = volatility_regime_adjustment(eigenfactor_adjusted_covariance, multiperiod_factor_returns['current'], date, parameters)
+    return NeweyWest_adjusted_covariance, eigenfactor_adjusted_covariance
+    #return NeweyWest_adjusted_covariance, eigenfactor_adjusted_covariance, VRA_adjusted_covariance
 
 
-    # 计算经验协方差矩阵，同时进行年化处理（乘以 252）
+# 检查矩阵条件数
+#np.linalg.cond(NeweyWest_adjusted_covariance)
+#np.linalg.cond(eigenfactor_adjusted_covariance)
+#np.linalg.cond(np.matrix(VRA_adjusted_covariance,dtype='float'))
 
-    empirical_factor_covariance = current_factor_return.cov().stack() * 252
 
-    empirical_factor_covariance.index.names = ['factor', '_factor']
+start_date = '2014-01-01'
+end_date = '2014-09-09'
+trading_dates = rqdatac.get_trading_dates(start_date,end_date)
 
-    reformatted_empirical_factor_covariance = empirical_factor_covariance.reset_index()
+daily_NeweyWest_adjusted_covariance = {}
+daily_eigenfactor_adjusted_covariance = {}
 
-    Newey_West_adjustment_cov, factor_volitality, correlation_matrix,estimated_cov = Newey_West_adjustment(current_factor_return,multiperiod_factor_returns,all_factors, parameters)
+short_NeweyWest_adjusted_covariance = {}
+short_eigenfactor_adjusted_covariance = {}
 
-    eigenfactor_risk_adjustment_cov = eigenfactor_risk_adjustment(Newey_West_adjustment_cov, factor_volitality,
-                                                                  all_factors)
+long_NeweyWest_adjusted_covariance = {}
+long_eigenfactor_adjusted_covariance = {}
 
-    volatility_regime_adjustment_cov = volatility_regime_adjustment(eigenfactor_risk_adjustment_cov,
-                                                                    current_factor_return, parameters)
+for date in trading_dates:
 
-    return volatility_regime_adjustment_cov
+    daily_NeweyWest_adjusted_covariance[date], daily_eigenfactor_adjusted_covariance[date] = get_factor_covariance(date, dailyParameters)
+    short_NeweyWest_adjusted_covariance[date], short_eigenfactor_adjusted_covariance[date] = get_factor_covariance(date, shortTermParameters)
+    long_NeweyWest_adjusted_covariance[date], long_eigenfactor_adjusted_covariance[date] = get_factor_covariance(date, shortTermParameters)
 
-
-date = '2018-02-02'
-
-parameeters = shortTermParameters
-
-industry_factors = ['CNE5S_ENERGY', 'CNE5S_CHEM', 'CNE5S_CONMAT', 'CNE5S_MTLMIN', 'CNE5S_MATERIAL', 'CNE5S_AERODEF',
-                    'CNE5S_BLDPROD', 'CNE5S_CNSTENG', 'CNE5S_ELECEQP', 'CNE5S_INDCONG', 'CNE5S_MACH', 'CNE5S_TRDDIST',
-                    'CNE5S_COMSERV', 'CNE5S_AIRLINE', 'CNE5S_MARINE', 'CNE5S_RDRLTRAN', 'CNE5S_AUTO', 'CNE5S_HOUSEDUR',
-                    'CNE5S_LEISLUX', 'CNE5S_CONSSERV', 'CNE5S_MEDIA', 'CNE5S_RETAIL', 'CNE5S_PERSPRD', 'CNE5S_BEV',
-                    'CNE5S_FOODPROD', 'CNE5S_HEALTH', 'CNE5S_BANKS', 'CNE5S_DVFININS', 'CNE5S_REALEST',
-                    'CNE5S_SOFTWARE','CNE5S_HDWRSEMI', 'CNE5S_UTILITIE']
-
-style_factors = ['CNE5S_BETA', 'CNE5S_MOMENTUM', 'CNE5S_SIZE', 'CNE5S_EARNYILD', 'CNE5S_RESVOL', 'CNE5S_GROWTH',
-                 'CNE5S_BTOP', 'CNE5S_LEVERAGE', 'CNE5S_LIQUIDTY', 'CNE5S_SIZENL']
-
-country_factor = ['CNE5S_COUNTRY']
-
-all_factors = industry_factors + style_factors + country_factor
-
-latest_trading_date = rqdatac.get_previous_trading_date((datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)))
-
-current_factor_return, multiperiod_factor_returns = get_multiperiod_factor_returns(all_factors, latest_trading_date,shortTermParameters)
-
-unadjusted_covariance_df = pd.DataFrame(index=all_factors,columns=all_factors)
-
-pre_volatility_covariance_df = pd.DataFrame(index=all_factors,columns=all_factors)
-
-fully_processed_covariance_df = pd.DataFrame(index=all_factors,columns=all_factors)
-
-for factor in all_factors:
-    for factors in all_factors:
-
-        value = unadjusted_covariance[(unadjusted_covariance['!Factor1']==factor) &(unadjusted_covariance['Factor2']==factors)]['VarCovar'].values
-
-        if len(value) == 0:
-            unadjusted_covariance_df.loc[factor][factors] = unadjusted_covariance[(unadjusted_covariance['!Factor1']==factors) &(unadjusted_covariance['Factor2']==factor)]['VarCovar'].values[0]
-            pre_volatility_covariance_df.loc[factor][factors] = pre_volatilityRegimeAdjustment_covariance[(pre_volatilityRegimeAdjustment_covariance['!Factor1'] == factors) & (pre_volatilityRegimeAdjustment_covariance['Factor2'] == factor)]['VarCovar'].values[0]
-            fully_processed_covariance_df.loc[factor][factors] = fully_processed_covariance[(fully_processed_covariance['!Factor1'] == factors) & (fully_processed_covariance['Factor2'] == factor)]['VarCovar'].values[0]
-        else:
-            unadjusted_covariance_df.loc[factor][factors] = value[0]
-            pre_volatility_covariance_df.loc[factor][factors] = pre_volatilityRegimeAdjustment_covariance[(pre_volatilityRegimeAdjustment_covariance['!Factor1'] == factor) & (pre_volatilityRegimeAdjustment_covariance['Factor2'] == factors)]['VarCovar'].values[0]
-            fully_processed_covariance_df.loc[factor][factors] = fully_processed_covariance[(fully_processed_covariance['!Factor1'] == factor) & (fully_processed_covariance['Factor2'] == factors)]['VarCovar'].values[0]
-
-
-factor_volitality1 = pd.Series(data=np.sqrt(np.diag(unadjusted_covariance_df.astype(np.float))),index=unadjusted_covariance_df.index)
-
-Newey_West_adjustment_cov, factor_volitality, correlation_matrix,estimated_cov = Newey_West_adjustment(current_factor_return, multiperiod_factor_returns, all_factors, shortTermParameters)
-
-eigenfactor_risk_adjustment_cov = eigenfactor_risk_adjustment(Newey_West_adjustment_cov, factor_volitality, all_factors,estimated_cov)
-
-volatility_regime_adjustment_cov = volatility_regime_adjustment(pre_volatility_covariance_df,current_factor_return,shortTermParameters)
-
-
-Newey_West_adjustment_cov = Newey_West_adjustment_cov.stack()
-
-Newey_West_adjustment_cov.index.names = ['factor', '_factor']
-
-Newey_West_adjustment_cov = Newey_West_adjustment_cov.reset_index()
-
-eigenfactor_risk_adjustment_cov = eigenfactor_risk_adjustment_cov.stack()
-
-eigenfactor_risk_adjustment_cov.index.names = ['factor', '_factor']
-
-eigenfactor_risk_adjustment_cov = eigenfactor_risk_adjustment_cov.reset_index()
-
-unadjusted_covariance_df = unadjusted_covariance_df.stack()
-
-unadjusted_covariance_df.index.names = ['factor', '_factor']
-
-unadjusted_covariance_df = unadjusted_covariance_df.reset_index()
-
-
-# volatility regime adjustment 处理后
-
-merged_covariance1 = pd.merge(pre_volatilityRegimeAdjustment_covariance, unadjusted_covariance_df, how='left',
-                             left_on=['!Factor1', 'Factor2'], right_on=['factor', '_factor'])
-
-print('fully_processed comparison', merged_covariance1[['VarCovar', 0]].astype(np.float).corr())
-
-print('fully_processed comparison', merged_covariance1[['VarCovar', 0]].head())
-
-np.linalg.norm(merged_covariance1['VarCovar'] - merged_covariance1[0])
-
-
-merged_covariance = pd.merge(pre_volatilityRegimeAdjustment_covariance, eigenfactor_risk_adjustment_cov, how='left',
-                             left_on=['!Factor1', 'Factor2'], right_on=['factor', '_factor'])
-
-print('fully_processed comparison', merged_covariance[['VarCovar', 0]].astype(np.float).corr())
-
-print('fully_processed comparison', merged_covariance[['VarCovar', 0]].head())
-
-np.linalg.norm(merged_covariance['VarCovar'] - merged_covariance[0])
-
-
-
-pre_volatility_covariance_df = pre_volatility_covariance_df.stack()
-
-pre_volatility_covariance_df.index.names = ['factor', '_factor']
-
-pre_volatility_covariance_df = pre_volatility_covariance_df.reset_index()
-
-volatility_regime_adjustment_cov = volatility_regime_adjustment_cov.stack()
-
-volatility_regime_adjustment_cov.index.names = ['factor', '_factor']
-
-volatility_regime_adjustment_cov = volatility_regime_adjustment_cov.reset_index()
-
-merged_covariance3 = pd.merge(fully_processed_covariance, pre_volatility_covariance_df, how='left',
-                             left_on=['!Factor1', 'Factor2'], right_on=['factor', '_factor'])
-
-print('fully_processed comparison', merged_covariance3[['VarCovar', 0]].astype(np.float).corr())
-
-print('fully_processed comparison', merged_covariance3[['VarCovar', 0]].head())
-
-np.linalg.norm(merged_covariance3['VarCovar'] - merged_covariance3[0])
-
-
-merged_covariance = pd.merge(fully_processed_covariance, volatility_regime_adjustment_cov, how='left',
-                             left_on=['!Factor1', 'Factor2'], right_on=['factor', '_factor'])
-
-print('fully_processed comparison', merged_covariance[['VarCovar', 0]].astype(np.float).corr())
-
-print('fully_processed comparison', merged_covariance[['VarCovar', 0]].head())
-
-np.linalg.norm(merged_covariance['VarCovar'] - merged_covariance[0])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    pickle.dump(daily_NeweyWest_adjusted_covariance[date], open('/Users/rice/Desktop/covariance/daliy_nw.pkl', 'wb'))
+    pickle.dump(daily_eigenfactor_adjusted_covariance[date],open('/Users/rice/Desktop/covariance/daliy_eigen.pkl', 'wb'))
+    pickle.dump(short_NeweyWest_adjusted_covariance[date],open('/Users/rice/Desktop/covariance/short_nw.pkl', 'wb'))
+    pickle.dump(short_eigenfactor_adjusted_covariance[date],open('/Users/rice/Desktop/covariance/short_eigen.pkl', 'wb'))
+    pickle.dump(long_NeweyWest_adjusted_covariance[date],open('/Users/rice/Desktop/covariance/long_nw.pkl', 'wb'))
+    pickle.dump(long_eigenfactor_adjusted_covariance[date],open('/Users/rice/Desktop/covariance/long_eigen.pkl', 'wb'))
 
 

@@ -50,6 +50,64 @@ def get_exposure(stock_list,date):
     return factor_exposure
 
 
+# 针对不同的股票池，需要重新计算市值因子暴露度和非线性市值因子暴露度，以消除二者之间的相关性
+
+def winsorization_and_market_cap_weighed_standardization(factor_exposure, market_cap_on_current_day):
+
+    # standardized factor exposure use cap-weighted mean and equal-weighted standard deviation
+
+    market_cap_weighted_mean = (market_cap_on_current_day * factor_exposure).sum() / market_cap_on_current_day.sum()
+
+    standardized_factor_exposure = (factor_exposure - market_cap_weighted_mean) / factor_exposure.std()
+
+    # Winsorization
+
+    upper_limit = standardized_factor_exposure.mean() + 3 * standardized_factor_exposure.std()
+
+    lower_limit = standardized_factor_exposure.mean() - 3 * standardized_factor_exposure.std()
+
+    standardized_factor_exposure[(standardized_factor_exposure > upper_limit) & (standardized_factor_exposure != np.nan)] = upper_limit
+
+    standardized_factor_exposure[(standardized_factor_exposure < lower_limit) & (standardized_factor_exposure != np.nan)] = lower_limit
+
+    return standardized_factor_exposure
+
+
+def orthogonalize(target_variable, reference_variable, regression_weight):
+
+    initial_guess = 1
+
+    def objective_function(coef):
+
+        return np.abs((regression_weight * (target_variable - coef * reference_variable) * reference_variable).sum())
+
+    res = sc_opt.minimize(objective_function, x0=initial_guess, method='L-BFGS-B')
+
+    orthogonalized_target_variable = target_variable - res['x'] * reference_variable
+
+    return orthogonalized_target_variable
+
+
+def get_size(market_cap):
+
+    processed_size = winsorization_and_market_cap_weighed_standardization(np.log(market_cap.replace(0, np.nan)), market_cap)
+
+    return processed_size
+
+
+def get_non_linear_size(size_exposure, market_cap):
+
+    cubed_size = np.power(size_exposure, 3)
+
+    processed_cubed_size = winsorization_and_market_cap_weighed_standardization(cubed_size, market_cap)
+
+    orthogonalized_cubed_size = orthogonalize(target_variable=processed_cubed_size, reference_variable=size_exposure,regression_weight=np.sqrt(market_cap) / (np.sqrt(market_cap).sum()))
+
+    processed_orthogonalized_cubed_size = winsorization_and_market_cap_weighed_standardization(orthogonalized_cubed_size, market_cap)
+
+    return processed_orthogonalized_cubed_size
+
+
 def constrainted_weighted_least_square(Y, X, weight, industry_total_market_cap, unconstrained_variables, constrained_variables):
 
     # 直接求解线性方程组（推导参见 Bloomberg <China A Share Equity Fundamental Factor Model>）
@@ -118,6 +176,9 @@ def customized_factor_return_estimation(date, factor_exposure,stock_list):
                             '交运设备', '食品饮料', '电子', '信息设备', '交通运输', '轻工制造', '公用事业', '机械设备',
                             '纺织服装', '农林牧渔', '商业贸易', '化工', '信息服务', '采掘', '黑色金属']
 
+    style_factor = ['beta', 'momentum', 'earnings_yield', 'residual_volatility', 'growth', 'book_to_price',
+                    'leverage', 'liquidity']
+
     stock_list = list(set(market_cap.index.tolist()).intersection(set(stock_list)))
 
     # 各行业市值之和，用于行业收益率约束条件
@@ -130,7 +191,31 @@ def customized_factor_return_estimation(date, factor_exposure,stock_list):
 
     csi_300_industry_total_market_cap = customized_industry_total_market_cap.drop(missing_industry)
 
-    factor_return_series = constrainted_weighted_least_square(Y = daily_excess_return[factor_exposure.index][stock_list].values[0], X = factor_exposure.drop(missing_industry, axis =1).loc[stock_list], weight = normalized_regression_weight[factor_exposure.index][stock_list],\
+    # 重新计算沪深300股票池中市值和非线性市值因子暴露度
+
+    size_exposure = get_size(market_cap[stock_list])
+
+    non_linear_size_exposure = get_non_linear_size(size_exposure, market_cap[stock_list])
+
+    # 其余风格因子做市值加权标准化处理
+
+    factors_exposure = factor_exposure.drop(missing_industry, axis=1).loc[stock_list]
+
+    market_cap_mean = market_cap[stock_list].dot(factors_exposure[style_factor])/ market_cap[stock_list].sum()
+
+    style_exposure = (factors_exposure[style_factor] - market_cap_mean)/(factors_exposure[style_factor].std())
+
+    # 将重新计算的市值和非线性市值暴露度和其余因子暴露度数据连接起来
+
+    style_exposure = pd.concat([style_exposure,size_exposure,non_linear_size_exposure],axis=1)
+
+    style_exposure.columns = style_factor + ['size','non_linear_size']
+
+    factor_exposure = pd.concat([style_exposure,factor_exposure.drop(missing_industry, axis =1).loc[stock_list][industry_factors]],axis=1)
+
+    factor_exposure['comovement'] = 1
+
+    factor_return_series = constrainted_weighted_least_square(Y = daily_excess_return[factor_exposure.index][stock_list].values[0], X=factor_exposure.drop(missing_industry, axis =1), weight = normalized_regression_weight[factor_exposure.index][stock_list],\
                                                                 industry_total_market_cap = csi_300_industry_total_market_cap, unconstrained_variables = 10, constrained_variables = len(csi_300_industry_total_market_cap))
 
     # 若指数在特定行业中没有配置任何股票，则因子收益率为 0

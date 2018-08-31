@@ -11,7 +11,7 @@ import sys
 
 sys.path.append("/Users/rice/Documents/cne5_factors/factor_exposure/")
 
-from intermediate_variables import *
+#from intermediate_variables import *
 
 
 def winsorization_and_market_cap_weighed_standardization(factor_exposure, market_cap_on_current_day):

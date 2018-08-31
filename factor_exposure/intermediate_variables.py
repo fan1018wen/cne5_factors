@@ -18,19 +18,6 @@ def get_exponential_weight(half_life, length):
     return np.cumprod(np.repeat(1/np.exp(np.log(2)/half_life), length))[::-1]
 
 
-def risk_free_rate(date):
-
-    shibor_now = pd.Series(ts.shibor_data(date.year)['3M'].values, index=ts.shibor_data(date.year)['date'])
-
-    shibor_last_year = pd.Series(ts.shibor_data(date.year-1)['3M'].values, index=ts.shibor_data(date.year-1)['date'])
-
-    shibor_2years_ago = pd.Series(ts.shibor_data(date.year-2)['3M'].values, index=ts.shibor_data(date.year-2)['date'])
-
-    RF_rate = pd.concat([shibor_2years_ago,shibor_last_year,shibor_now], axis=0)
-
-    return RF_rate
-
-
 def get_market_portfolio_return(filtered_stock_daily_return, market_cap_on_current_day):
 
     market_cap_filtered_universe = market_cap_on_current_day[market_cap_on_current_day > 3000000000].index.tolist()

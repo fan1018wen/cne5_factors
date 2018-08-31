@@ -11,27 +11,56 @@ import rqdatac
 rqdatac.init('rice', 'rice', ('192.168.10.64', 16030))
 
 
-# test
-date = '2018-02-02'
+def get_specific_return(date):
 
-previous_date = '2018-02-01'
+    previous_date = rqdatac.get_previous_trading_date(date)
 
-stock_list = rqdatac.all_instruments(type='CS',date=previous_date)['order_book_id'].values.tolist()
+    stock_list = rqdatac.all_instruments(type='CS', date=previous_date)['order_book_id'].values.tolist()
 
-factor_return = rqdatac.barra.get_factor_return(date,date).T
+    factor_exposure = rqdatac.get_factor_exposure(stock_list, previous_date, previous_date)
 
-factor_exposure = rqdatac.barra.get_factor_exposure(stock_list,previous_date,previous_date)
+    factor_exposure.index = factor_exposure.index.droplevel('date')
 
-factor_exposure.index = factor_exposure.index.droplevel('date')
+    factor_return = rqdatac.get_factor_return(date, date).T
 
-stock_return = rqdatac.get_price(stock_list,previous_date,date,frequency='1d',fields='close',).pct_change()[1:].T
+    compounded_risk_free_return = rqdatac.get_yield_curve(start_date=date, end_date=date, tenor='3M')
 
-#stock_return = rqdatac.get_price_change_rate(stock_list,date,date).T
+    risk_free_return = (((1 + compounded_risk_free_return) ** (1 / 252)) - 1)
 
-specific_return = stock_return - factor_exposure.dot(factor_return)
+    stock_return = rqdatac.get_price(stock_list, previous_date, date, frequency='1d', fields='close', ).pct_change()[1:].T
 
-barra_specific_return = rqdatac.barra.get_specific_return(stock_list,date,date).T
+    specific_return = stock_return - factor_exposure.dot(factor_return) - risk_free_return.values()
 
-np.linalg.norm(100 * specific_return[date] - barra_specific_return[date])
+    return specific_return
 
-test = abs(100*specific_return - barra_specific_return)
+
+def get_multi_specific_return(start_date, end_date):
+
+    previous_start_date = rqdatac.get_previous_trading_date(start_date)
+    previous_end_date = rqdatac.get_previous_trading_date(end_date)
+    stock_list = rqdatac.all_instruments(type='CS', date=previous_end_date)['order_book_id'].values.tolist()
+
+    stock_exposure = rqdatac.get_factor_exposure(stock_list, previous_start_date, previous_end_date)
+    factor_return = rqdatac.get_factor_return(start_date, end_date).T
+
+    compounded_risk_free_return = rqdatac.get_yield_curve(start_date=start_date, end_date=end_date, tenor='3M')
+    risk_free_return = (((1 + compounded_risk_free_return) ** (1 / 252)) - 1).loc[factor_return.columns]
+
+    market_data_panel = rqdatac.get_price(stock_list, previous_start_date,  end_date, frequency='1d', fields=['close', 'volume'])
+    close = market_data_panel['close']
+    volume = market_data_panel['volume']
+    stock_return = close.pct_change()[1:].T
+
+    specific_return = pd.DataFrame()
+
+    for trading_date in stock_exposure.index.get_level_values(1).unique():
+
+        next_date = rqdatac.get_next_trading_date(trading_date)
+        component_exposure_on_current_day = stock_exposure.xs(trading_date, level=1, drop_level=True)
+        specific_return[next_date] = stock_return[next_date] - component_exposure_on_current_day.dot(factor_return[next_date]) - risk_free_return.loc[next_date].values
+
+        # 若个股当天停牌，则其当天的特异收益率替换为0
+        suspended_stocks_on_current_day = volume.T[next_date][volume.T[next_date] == 0].index.tolist()
+        specific_return[next_date][suspended_stocks_on_current_day] = 0
+
+    return 100 * specific_return.T
